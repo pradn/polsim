@@ -1,4 +1,8 @@
+import math
 import random
+import numpy as np
+from numpy import array
+import matplotlib.pyplot as plt
 
 class Person:
     def __init__(self, id, sulprus, generosity, location, leader):
@@ -53,7 +57,7 @@ def locationCloserToLeader(person, leader, move_coefficient):
 def getFollowerCount(person, people):
     return len([f for f in people if f.leader and f.leader.id == person.id])
 
-def calculate_sulprus(person, people, growth_rate, sulprus_modifier_rate_min, sulprus_modifier_rate_max):
+def calculateSulprus(person, people, growth_rate, sulprus_modifier_rate_min, sulprus_modifier_rate_max):
     # find followers
     follower_count = getFollowerCount(person, people)
     amount_for_followers = (follower_count * person.sulprus * person.generosity)
@@ -95,8 +99,48 @@ def printLevels(people):
         level = getLevelInHierarchy(p)
         print (str(p) + " -> " + str(level))
 
-class GuanziExperiment:
+def pstdev(nums):
+    mean = sum(nums) / len(nums)
+    return math.sqrt(sum([(i - mean) * (i - mean) for i in nums]) / len(nums))
+
+def locationPStddev(people):
+    locations = [p.location for p in people]
+    # using pstdev instead of stdev because we have the whole population, not a sample
+    return pstdev(locations)
+
+class Metrics:
     def __init__(self):
+        self.current_round = 0
+        self.metric_names = []
+
+    def init(self, rounds):
+        self.data = [ {} for r in range(rounds)]
+
+    def addMetricName(self, name):
+        self.metric_names.append(name)
+
+    def nextRound(self):
+        self.current_round = self.current_round + 1
+
+    def addMetric(self, name, value):
+        self.data[self.current_round][name] = value
+
+    def plot(self):
+        print(self.data)
+        rounds = np.arange(0, len(self.data), 1)
+
+        plt.figure(1)
+        for i, metric_name in enumerate(self.metric_names):
+            subplot_num = 211 + i
+            plt.subplot(subplot_num)
+            plt.title(metric_name)
+            values = [kv[metric_name] for kv in self.data]
+            plt.ylim(0, max(values))
+            plt.plot(rounds, array(values))
+        plt.show()
+
+class GuanziExperiment:
+    def __init__(self, metrics):
         ## constants ##
 
         self.rounds = 100
@@ -117,6 +161,9 @@ class GuanziExperiment:
         self.move_coefficient = 0.3
 
         ## variables ##
+        self.metrics = metrics
+        self.metrics.init(self.rounds)
+        self.metrics.addMetricName("location_pstdev")
         # Start with |num_people| people
         self.people = [self.randomPerson(i) for i in range(0, self.num_people)]
 
@@ -135,7 +182,8 @@ class GuanziExperiment:
         for old_person in old_people:
             new_leader = findLeaderToFollow(old_people, old_person)
             new_location = locationCloserToLeader(old_person, new_leader, self.move_coefficient)
-            new_sulprus = calculate_sulprus(old_person, old_people, self.growth_rate, self.sulprus_modifier_rate_min, self.sulprus_modifier_rate_max)
+            # TODO consistent fn name style
+            new_sulprus = calculateSulprus(old_person, old_people, self.growth_rate, self.sulprus_modifier_rate_min, self.sulprus_modifier_rate_max)
             new_people.append(Person(old_person.id, new_sulprus, old_person.generosity, new_location, new_leader))
         self.people = new_people
 
@@ -145,11 +193,17 @@ class GuanziExperiment:
         visualizeLocationsWithCounts(self.people, self.location_min, self.location_max)
         #printLevels(self.people)
         #printLeaders(self.people)
+        #print(locationPStddev(self.people))
+        self.metrics.addMetric("location_pstdev", locationPStddev(self.people))
+        self.metrics.nextRound()
 
     def runAllRounds(self):
         for round in range(0, self.rounds):
             print("ROUND " + str(round))
             self.runRound()
 
-exp = GuanziExperiment()
+metrics = Metrics()
+exp = GuanziExperiment(metrics)
 exp.runAllRounds()
+metrics.plot()
+ 
