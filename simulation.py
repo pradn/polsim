@@ -2,6 +2,7 @@ import math
 import random
 import numpy as np
 from numpy import array
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 class Person:
@@ -11,12 +12,18 @@ class Person:
         self.generosity = generosity
         self.location = location
         self.leader = leader
+
     def __repr__(self):
         return "[ id: " + str(self.id) + \
                 ", s:" + format(self.sulprus, ".2f") + \
                 ", g: " + format(self.generosity, ".2f") + \
                 ", loc: " + format(self.location, ".2f") + \
                 ", ldr: " + str(self.leader.id if self.leader else -1) + "]"
+
+    def clone(self):
+        return Person(self.id, self.sulprus, self.generosity, self.location, self.leader)
+
+
 
 def findLeaderToFollow(people, person):
     # sort |people| array by distance to |person|
@@ -125,11 +132,18 @@ class Metrics:
     def addMetric(self, name, value):
         self.data[self.current_round][name] = value
 
-    def plot(self):
-        print(self.data)
-        rounds = np.arange(0, len(self.data), 1)
+    def addPeople(self, people):
+        cloned_people = [p.clone() for p in people]
+        self.addMetric("people", cloned_people)
 
+    def plot(self):
+        # values for x-axis
+        num_rounds = len(self.data)
+        rounds = np.arange(0, num_rounds, 1)
+
+        # start plot
         plt.figure(1)
+        # draw a plot per scalar metric
         for i, metric_name in enumerate(self.metric_names):
             subplot_num = 211 + i
             plt.subplot(subplot_num)
@@ -137,13 +151,35 @@ class Metrics:
             values = [kv[metric_name] for kv in self.data]
             plt.ylim(0, max(values))
             plt.plot(rounds, array(values))
+
+        # draw a plot of locations over time
+        x = []
+        y = []
+        labels = []
+        
+        mpl.rcParams["font.size"] = 8
+        for round, round_data in enumerate(self.data):
+            people = round_data["people"]
+            for p in people:
+                x.append(round)
+                y.append(p.location)
+                labels.append(p.id)
+
+        plt.subplot(212)
+        #fig, ax = plt.subplots()
+        #ax.scatter(z, y)
+        plt.scatter(x, y)
+
+        for i, txt in enumerate(labels):
+                plt.annotate(txt, (x[i] + 0.1, y[i]))
+
         plt.show()
 
 class GuanziExperiment:
     def __init__(self, metrics):
         ## constants ##
 
-        self.rounds = 100
+        self.rounds = 10
         self.num_people = 50
         self.generosity_min = 0.01
         self.generosity_max = 0.10
@@ -187,6 +223,10 @@ class GuanziExperiment:
             new_people.append(Person(old_person.id, new_sulprus, old_person.generosity, new_location, new_leader))
         self.people = new_people
 
+        self.metrics.addPeople(self.people)
+        self.metrics.addMetric("location_pstdev", locationPStddev(self.people))
+        self.metrics.nextRound()
+
         #various ways to look at the data
         #print(str(self.people))
         #visualizeLocationsWithDots(self.people)
@@ -194,8 +234,6 @@ class GuanziExperiment:
         #printLevels(self.people)
         #printLeaders(self.people)
         #print(locationPStddev(self.people))
-        self.metrics.addMetric("location_pstdev", locationPStddev(self.people))
-        self.metrics.nextRound()
 
     def runAllRounds(self):
         for round in range(0, self.rounds):
