@@ -50,9 +50,6 @@ def locationCloserToLeader(person, leader, move_coefficient):
     else:
         return (person_loc - leader_loc) * (1 - move_coefficient) + leader_loc
 
-def modify_sulprus(sulprus, sulprus_modifier_rate_min, sulprus_modifier_rate_max):
-    return sulprus * (1 + random.uniform(sulprus_modifier_rate_min, sulprus_modifier_rate_max))
-
 def getFollowerCount(person, people):
     return len([f for f in people if f.leader and f.leader.id == person.id])
 
@@ -60,8 +57,9 @@ def calculate_sulprus(person, people, growth_rate, sulprus_modifier_rate_min, su
     # find followers
     follower_count = getFollowerCount(person, people)
     amount_for_followers = (follower_count * person.sulprus * person.generosity)
-    # TODO make clearer
-    sulprus_after_modifiers = modify_sulprus(person.sulprus * (1 + growth_rate), sulprus_modifier_rate_min, sulprus_modifier_rate_max)
+    sulprus_after_growth =  person.sulprus * (1 + growth_rate)
+    modifier_rate = 1 + random.uniform(sulprus_modifier_rate_min, sulprus_modifier_rate_max)
+    sulprus_after_modifiers = sulprus_after_growth * modifier_rate
     return sulprus_after_modifiers - amount_for_followers
 
 def printLeaders(people):
